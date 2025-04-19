@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Performance Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-md w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center">Login</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <nav class="bg-blue-600 p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-white text-xl font-bold">Sales Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="userRole" class="text-white"></span>
+                    <button onclick="logout()" class="text-white hover:text-gray-200">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-4">
+            <!-- Admin View -->
+            <div id="adminView" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Total Sales</h3>
+                        <p id="totalSales" class="text-2xl font-bold text-blue-600">₹0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Active Sellers</h3>
+                        <p id="activeSellers" class="text-2xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Target Achievement</h3>
+                        <p id="targetAchievement" class="text-2xl font-bold text-purple-600">0%</p>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow mb-6">
+                    <canvas id="adminSalesChart"></canvas>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Seller Performance</h3>
+                    <div id="sellerTable" class="overflow-x-auto">
+                        <!-- Seller table will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seller View -->
+            <div id="sellerView" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Monthly Target</h3>
+                        <p id="sellerTarget" class="text-2xl font-bold text-blue-600">₹0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Achievement</h3>
+                        <p id="sellerAchievement" class="text-2xl font-bold text-green-600">₹0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Achievement %</h3>
+                        <p id="sellerPercentage" class="text-2xl font-bold text-purple-600">0%</p>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow mb-6">
+                    <canvas id="sellerPerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock user data (in real app, this would be server-side)
+        const users = {
+            'admin': { password: 'admin123', role: 'admin' },
+            'seller1': { password: 'seller123', role: 'seller' }
+        };
+
+        let currentUser = null;
+
+        // Login handler
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (users[username] && users[username].password === password) {
+                currentUser = { username, role: users[username].role };
+                showDashboard();
+            } else {
+                alert('Invalid credentials');
+            }
+        });
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('userRole').textContent = `${currentUser.role.toUpperCase()}: ${currentUser.username}`;
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('sellerView').classList.add('hidden');
+                initializeAdminDashboard();
+            } else {
+                document.getElementById('adminView').classList.add('hidden');
+                document.getElementById('sellerView').classList.remove('hidden');
+                initializeSellerDashboard();
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function initializeAdminDashboard() {
+            // Mock data - replace with actual CSV data
+            const mockData = {
+                totalSales: 1500000,
+                activeSellers: 5,
+                targetAchievement: 85,
+                monthlySales: [100000, 120000, 150000, 130000, 160000, 140000]
+            };
+
+            document.getElementById('totalSales').textContent = `₹${mockData.totalSales.toLocaleString()}`;
+            document.getElementById('activeSellers').textContent = mockData.activeSellers;
+            document.getElementById('targetAchievement').textContent = `${mockData.targetAchievement}%`;
+
+            // Create admin sales chart
+            const ctx = document.getElementById('adminSalesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Monthly Sales',
+                        data: mockData.monthlySales,
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+
+        function initializeSellerDashboard() {
+            // Mock data - replace with actual CSV data
+            const mockData = {
+                target: 300000,
+                achievement: 255000,
+                percentage: 85,
+                monthlyPerformance: [80, 85, 90, 82, 88, 85]
+            };
+
+            document.getElementById('sellerTarget').textContent = `₹${mockData.target.toLocaleString()}`;
+            document.getElementById('sellerAchievement').textContent = `₹${mockData.achievement.toLocaleString()}`;
+            document.getElementById('sellerPercentage').textContent = `${mockData.percentage}%`;
+
+            // Create seller performance chart
+            const ctx = document.getElementById('sellerPerformanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Monthly Achievement %',
+                        data: mockData.monthlyPerformance,
+                        backgroundColor: 'rgb(59, 130, 246)'
+                    }]
+                }
+            });
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
